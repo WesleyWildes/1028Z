@@ -1,410 +1,705 @@
-/*----------------------------------------------------------------------------*/
-/* */
-/* Module: main.cpp */
-/* Author: Wesley.Wildes */
-/* Created: 9/21/2023, 3:57:08 PM */
-/* Description: Over Under Robot Code */
-/* */
-/*----------------------------------------------------------------------------*/
-
 
 #include "vex.h"
 
-
 using namespace vex;
-
-
-// A global instance of competition
 competition Competition;
-// define your global instances of motors and other devices here
+vex::brain Brain = vex::brain(); 
+vex::inertial Inertial = vex::inertial(vex::PORT11);
+vex::motor FrontLeft (vex::PORT1, vex::gearSetting::ratio18_1, true);
+vex::motor FrontRight (vex::PORT2, vex::gearSetting::ratio18_1, false);
+vex::motor BackLeft (vex::PORT3, vex::gearSetting::ratio18_1, true);
+vex::motor BackRight (vex::PORT4, vex::gearSetting::ratio18_1, false);
+vex::motor MiddleLeft (vex::PORT5, vex::gearSetting::ratio18_1, true);
+vex::motor MiddleRight (vex::PORT6, vex::gearSetting::ratio18_1, false);
+vex::motor Intake (vex::PORT12, vex::gearSetting::ratio18_1, false);
+vex::controller Controller1 (vex::controllerType::primary);
+vex::pneumatics expand = vex::pneumatics(Brain.ThreeWirePort.H);
+vex::pneumatics hang = vex::pneumatics(Brain.ThreeWirePort.G);
+vex::motor flywheel (vex::PORT19, vex::gearSetting::ratio18_1, true);
 
 
-//drive Motors
-vex::motor LF = vex::motor(vex::PORT9);//5.5 W 200 rpm cartridge
-vex::motor LM = vex::motor(vex::PORT6);//5.5 W 200 rpm cartridge
-vex::motor LB = vex::motor(vex::PORT7);//11 W 600 rpm cartridge
-vex::motor RF = vex::motor(vex::PORT2);//11 W 600 rpm cartridge
-vex::motor RM = vex::motor(vex::PORT5);//11 W 600 rpm cartridge
-vex::motor RB = vex::motor(vex::PORT10);//11 W 600 rpm cartridge
+void resetDrive(){
+  FrontLeft.resetPosition();
+  BackLeft.resetPosition();
+  MiddleLeft.resetPosition();
+  BackRight.resetPosition();
+  MiddleRight.resetPosition();
+  FrontRight.resetPosition();
+}
 
 
-//cata
-vex::motor CataLeft = vex::motor(vex::PORT4);//11 W 100 rpm cartridge
-vex::motor CataRight = vex::motor(vex::PORT3);//11 W 100 rpm cartridge
 
-
-//Intake
-vex::motor Intake = vex::motor(vex::PORT20);////11 W 600 rpm cartridge
-
-
-//others
-vex::controller Controller1 = vex::controller();
-vex::brain Brain = vex::brain();
-
-
-//sensors
-vex::rotation Rotation = vex::rotation(vex::PORT3);
-vex::rotation Rotation2 = vex::rotation(vex::PORT11);
-vex::rotation Rotation3 = vex::rotation(vex::PORT12);
-
-
-vex::inertial Inertial = vex::inertial(vex::PORT8);
-
-
-//pnuematics
-vex::pneumatics HangL = vex::pneumatics(Brain.ThreeWirePort.A);
-vex::pneumatics HangR = vex::pneumatics(Brain.ThreeWirePort.B);
-vex::pneumatics WingL = vex::pneumatics(Brain.ThreeWirePort.C);
-vex::pneumatics WingR = vex::pneumatics(Brain.ThreeWirePort.D);
-
-
-//Pid Functions
 void turn(int degrees, int Speed) {
-double P = 0.43; // tuning values for tuning the PID loop for smooth turns
-double I = 0.0;
-double D = 0.23;
-double error = 0.0; // difference from where you want to go and where you are
-double prevError = 0.0; // error one code cycle ago
-double integral = 0.0; // adds one every time to make sure it doesn't take too long to get to the target
-double derivative = 0.0; // difference between the current error and the previous error
-double measuredValue = 0.0;
-bool reachedTarget = false;
+ double P = 0.345; // tuning values for tuning the PID loop for smooth turns
+  double I = 0.08; // need to adjust
+  double D = 0.15;
+  double error = 0.0; // difference from where you want to go and where you are
+  double prevError = 0.0; // error one code cycle ago
+  double integral = 0.0; // adds one every time to make sure it doesn't take too long to get to the target
+  double derivative = 0.0; // difference between the current error and the previous error
+  double measuredValue = 0.0;
+  bool reachedTarget = false;
 
+  while (true) {
+    measuredValue = Inertial.rotation(vex::rotationUnits::deg);
+    double turnSpeed = (error * P) + (integral * I) + (derivative * D);
+    FrontLeft.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
+    MiddleLeft.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
+    BackLeft.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
+    FrontRight.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    MiddleRight.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    BackRight.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    
+    error = -1*(degrees - measuredValue);
 
-while (true) {
-measuredValue = Inertial.rotation(vex::rotationUnits::deg);
-double turnSpeed = (error * P) + (integral * I) + (derivative * D);
-LF.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-LM.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-LB.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-RF.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-RM.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-RB.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-error = degrees - measuredValue;
-// Limit the integral term to prevent wind-up
-if (abs(error) < 5) {
-integral += error;
-} else {
-integral = 0;
-}
-derivative = error - prevError;
-prevError = error;
+   
+    // Limit the integral term to prevent wind-up
+    if (abs(error) < 5) {
+      integral += error;
+    } else {
+      integral = 0;
+    }
+    
+    derivative = error - prevError;
+    prevError = error;
 
+    if (abs(error) < 1.5) {
+      reachedTarget = true; // Mark that we've reached the target
+    }
 
-if (abs(error) < 1) {
-reachedTarget = true; // Mark that we've reached the target
-}
+    // If the error changes sign after reaching the target, break the loop
+    if (reachedTarget) {
+      FrontLeft.stop();
+      MiddleLeft.stop();
+      BackLeft.stop();
+      FrontRight.stop();
+      MiddleRight.stop();
+      BackRight.stop();
+      break;
+    }
 
-
-// If the error changes sign after reaching the target, break the loop
-if (reachedTarget) {
-break;
-}
-
-
-wait(20, msec);
-}
-}
-
-
-#include <cmath>
-
-
-
-
-double leftEncoder = 0.0;
-double rightEncoder = 0.0;
-double backEncoder = 0.0;
-double leftOffset = 5.25;
-double rightOffset = 5.25;
-double backOffset = 5.25;
-float botX = 0;
-float botY = 0;
-float botTheta = 0;
-float botDegrees;
-float botDelta = 0;
-float lastX = 0;
-float lastY = 0;
-
-
-// OdomTest function
-int OdomTest () {
-while(true){
-Rotation.resetPosition(); //reset rotation wheel vars
-Rotation2.resetPosition();
-Rotation3.resetPosition();
-float radius = 0.0;
-leftEncoder = Rotation.position(vex::rotationUnits::raw) * 3.25;//updat rotation wheel vars
-rightEncoder = Rotation2.position(vex::rotationUnits::raw) * 3.25;
-backEncoder = Rotation3.position(vex::rotationUnits::raw) * 3.25;
-botTheta = (leftEncoder - rightEncoder) / (leftOffset + rightOffset);
-botDegrees = botTheta * (180.0 / M_PI); //rad to deg
-botDelta = (2 * (sin(botTheta / 2.0))); //delta math
-botX = lastX += (botDelta * ((backEncoder / botTheta) + backOffset)) ; //finding x
-botY = lastY += (botDelta * ((rightEncoder / botTheta) + rightOffset)); //finding y
-
-
-botX = lastX;
-botY = lastY;
-wait(100, msec);
-}
+    wait(20, msec);
+  }
 }
 
 
 void move(int distance, int Speed) {
-double P = 0.37; // tuning values for tuning the PID loop for smooth turns
-double I = 0.0;
-double D = 0.21;
-double error = 0.0; // difference from where you want to go and where you are
-double prevError = 0.0; // error one code cycle ago
-double integral = 0.0; // adds one every time to make sure it doesn't take too long to get to the target
-double derivative = 0.0; // difference between the current error and the previous error
-double measuredValue = 0.0;
-bool reachedTarget = false;
-RF.setPosition(0, vex::rotationUnits::deg);
-RM.setPosition(0, vex::rotationUnits::deg);
-RB.setPosition(0, vex::rotationUnits::deg);
-LF.setPosition(0, vex::rotationUnits::deg);
-LM.setPosition(0, vex::rotationUnits::deg);
-LB.setPosition(0, vex::rotationUnits::deg);
+  double P = 0.31; // tuning values for tuning the PID loop for smooth turns
+  double I = 0.0;
+  double D = 0.15;
+  double error = 0.0; // difference from where you want to go and where you are
+  double prevError = 0.0; // error one code cycle ago
+  double integral = 0.0; // adds one every time to make sure it doesn't take too long to get to the target
+  double derivative = 0.0; // difference between the current error and the previous error
+  double measuredValue = 0.0;
+  bool reachedTarget = false;
+FrontRight.setPosition(0, vex::rotationUnits::deg);
+MiddleRight.setPosition(0, vex::rotationUnits::deg);
+BackRight.setPosition(0, vex::rotationUnits::deg);
+FrontLeft.setPosition(0, vex::rotationUnits::deg);
+MiddleLeft.setPosition(0, vex::rotationUnits::deg);
+BackLeft.setPosition(0, vex::rotationUnits::deg);
 
 
+  while (true) {
+    
+    measuredValue = (FrontLeft.position(vex::rotationUnits::deg) + FrontRight.position(vex::rotationUnits::deg) + MiddleLeft.position(vex::rotationUnits::deg) + MiddleRight.position(vex::rotationUnits::deg) + BackLeft.position(vex::rotationUnits::deg) + BackRight.position(vex::rotationUnits::deg)) / 6;
+   
+    double turnSpeed = (error * P) + (integral * I) + (derivative * D);
+    FrontLeft.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    MiddleLeft.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    BackLeft.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    FrontRight.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    MiddleRight.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    BackRight.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
+    
+    error = distance - measuredValue;
+    Brain.Screen.newLine();
+    Brain.Screen.print(error);
+   
+    // Limit the integral teMiddleRight to prevent wind-up
+    if (abs(error) < 5) {
+      integral += error;
+    } else {
+      integral = 0;
+    }
+    
+    derivative = error - prevError;
+    prevError = error;
 
+    if (abs(error) < 3) {
+      reachedTarget = true; // Mark that we've reached the target
+    }
 
-while (true) {
-measuredValue = LF.position(vex::rotationUnits::deg) + RF.position(vex::rotationUnits::deg) + LM.position(vex::rotationUnits::deg) + RM.position(vex::rotationUnits::deg) + LB.position(vex::rotationUnits::deg) + RB.position(vex::rotationUnits::deg) / 6;
-double turnSpeed = (error * P) + (integral * I) + (derivative * D);
-if (turnSpeed > Speed) {
-turnSpeed = Speed;
+    // If the error changes sign after reaching the target, break the loop
+    if (reachedTarget) {
+
+      break;
+    }
+
+    wait(20, msec);
+  }
 }
 
 
-LF.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
-LM.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
-LB.spin(vex::directionType::fwd, turnSpeed, vex::velocityUnits::pct);
-RF.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-RM.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-RB.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
-error = distance - measuredValue;
-Brain.Screen.newLine();
-Brain.Screen.print(error);
-// Limit the integral term to prevent wind-up
-if (abs(error) < 5) {
-integral += error;
-} else {
-integral = 0;
-}
-derivative = error - prevError;
-prevError = error;
-
-
-if (abs(error) < 1) {
-reachedTarget = true; // Mark that we've reached the target
+void MoveIntake (int time, double spd){
+  FrontLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+ 
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+  Intake.stop(vex::brakeType::brake);
 }
 
-
-// If the error changes sign after reaching the target, break the loop
-if (reachedTarget) {
-break;
+void MoveForward (int time, double spd){
+  FrontLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+}
+void TurnLeft (int time, double spd){
+  FrontLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+}
+//////////// custom move stuff testing
+void turnMove(int move1, int degrees1, int move2, int degrees2, int move3, int spdFaster, int spdSlower) { 
+  FrontRight.setPosition(0, vex::rotationUnits::deg);
+  MiddleRight.setPosition(0, vex::rotationUnits::deg);
+  BackRight.setPosition(0, vex::rotationUnits::deg);
+  FrontLeft.setPosition(0, vex::rotationUnits::deg);
+  MiddleLeft.setPosition(0, vex::rotationUnits::deg);
+  BackLeft.setPosition(0, vex::rotationUnits::deg);
+  //resets position for first move
+  FrontLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  waitUntil((FrontLeft.position(vex::rotationUnits::deg) + FrontRight.position(vex::rotationUnits::deg) + 
+  MiddleLeft.position(vex::rotationUnits::deg) + MiddleRight.position(vex::rotationUnits::deg) + 
+  BackLeft.position(vex::rotationUnits::deg) + BackRight.position(vex::rotationUnits::deg)) / 6 >= move1);
+  // waits until motors have travelled farther or same as move 1
+    FrontLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spdSlower, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spdSlower, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spdSlower, vex::velocityUnits::pct);
+  //waints until inertial is turned farther or same as degrees1
+  waitUntil(Inertial.rotation(vex::rotationUnits::deg) >= degrees1);
+  FrontLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  FrontRight.setPosition(0, vex::rotationUnits::deg);
+  MiddleRight.setPosition(0, vex::rotationUnits::deg);
+  BackRight.setPosition(0, vex::rotationUnits::deg);
+  FrontLeft.setPosition(0, vex::rotationUnits::deg);
+  MiddleLeft.setPosition(0, vex::rotationUnits::deg);
+  BackLeft.setPosition(0, vex::rotationUnits::deg);
+  waitUntil((FrontLeft.position(vex::rotationUnits::deg) + FrontRight.position(vex::rotationUnits::deg) + 
+  MiddleLeft.position(vex::rotationUnits::deg) + MiddleRight.position(vex::rotationUnits::deg) + 
+  BackLeft.position(vex::rotationUnits::deg) + BackRight.position(vex::rotationUnits::deg)) / 6 >= move2);
+  // waits until motors have travelled farther or same as move 2
+   FrontLeft.spin(vex::directionType::fwd, spdSlower, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spdSlower, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spdSlower, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+    //waints until inertial is less than or same as degrees2
+  waitUntil(Inertial.rotation(vex::rotationUnits::deg) <= degrees2);
+    FrontLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spdFaster, vex::velocityUnits::pct);
+  FrontRight.setPosition(0, vex::rotationUnits::deg);
+  MiddleRight.setPosition(0, vex::rotationUnits::deg);
+  BackRight.setPosition(0, vex::rotationUnits::deg);
+  FrontLeft.setPosition(0, vex::rotationUnits::deg);
+  MiddleLeft.setPosition(0, vex::rotationUnits::deg);
+  BackLeft.setPosition(0, vex::rotationUnits::deg);
+  waitUntil((FrontLeft.position(vex::rotationUnits::deg) + FrontRight.position(vex::rotationUnits::deg) + 
+  MiddleLeft.position(vex::rotationUnits::deg) + MiddleRight.position(vex::rotationUnits::deg) + 
+  BackLeft.position(vex::rotationUnits::deg) + BackRight.position(vex::rotationUnits::deg)) / 6 >= move3);
+  // waits until motors have travelled farther or same as move 3
+  BackLeft.stop(vex::brakeType::hold);
+  MiddleLeft.stop(vex::brakeType::hold);
+  FrontLeft.stop(vex::brakeType::hold);
+  BackRight.stop(vex::brakeType::hold);
+  MiddleRight.stop(vex::brakeType::hold);
+  FrontRight.stop(vex::brakeType::hold);
+  
+}
+void flying(int time,int speed){
+  flywheel.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
+  wait(time, msec);
+  flywheel.stop(vex::brakeType::brake);
 }
 
 
-wait(20, msec);
+
+void expell(int time, int speed) {
+  Intake.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
+  wait(time, msec);
+  Intake.stop(vex::brakeType::brake);
 }
+
+void slantLeft(int time,int spd){
+  FrontLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd*3, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd*3, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd*3, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+}
+
+void slantRevLeft(int time,int spd){
+  FrontLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::rev, spd*3, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::rev, spd*3, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::rev, spd*3, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
 }
 
 
-//other auton functions
-void Cata(int speed) {
-double rotationPosition = 0;
-CataLeft.spin(vex::directionType::fwd, 50, vex::velocityUnits::pct);
-CataRight.spin(vex::directionType::rev, 50, vex::velocityUnits::pct);
-wait(500, msec);
-
-
-while (true) {
-rotationPosition = Rotation.position(vex::rotationUnits::deg);
-
-
-if (rotationPosition == 30) {
-CataLeft.stop(vex::brakeType::brake);
-CataRight.stop(vex::brakeType::brake);
-break;
+void frontExpand(int time,int spd){
+  expand.open();
+  FrontLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+  expand.close();
 }
-vex::task::sleep(20);
+void slantRight(int time,int spd){
+  FrontLeft.spin(vex::directionType::fwd, spd*4.3, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spd*4.3, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spd*4.3, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
 }
+void slantRevRight(int time,int spd){
+  FrontLeft.spin(vex::directionType::rev, spd*4.3, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::rev, spd*4.3, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::rev, spd*4.3, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
 }
-void intakeSpin(int time, int speed) {
-Intake.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-wait(time, msec);
-Intake.stop(vex::brakeType::brake);
+void slantRightLess(int time,int spd){
+  FrontLeft.spin(vex::directionType::fwd, spd*3, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::fwd, spd*3, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::fwd, spd*3, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::fwd, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
 }
-void slantRight(int time) {
-LF.spin(vex::directionType::rev, 88, vex::velocityUnits::pct);
-LM.spin(vex::directionType::rev, 88, vex::velocityUnits::pct);
-LB.spin(vex::directionType::rev, 88, vex::velocityUnits::pct);
-RF.spin(vex::directionType::fwd, 55, vex::velocityUnits::pct);
-RM.spin(vex::directionType::fwd, 55, vex::velocityUnits::pct);
-RB.spin(vex::directionType::fwd, 55, vex::velocityUnits::pct);
-wait (time, msec);
-LF.stop(vex::brakeType::brake);
-LM.stop(vex::brakeType::brake);
-LB.stop(vex::brakeType::brake);
-RF.stop(vex::brakeType::brake);
-RM.stop(vex::brakeType::brake);
-RB.stop(vex::brakeType::brake);
+void backExpand(int time,int spd){
+  expand.open();
+  FrontLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+  expand.close();
+}
+void moveBack(int time,int spd){
+  FrontLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleLeft.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  BackRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  MiddleRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  FrontRight.spin(vex::directionType::rev, spd, vex::velocityUnits::pct);
+  wait(time,msec);
+  FrontLeft.stop(vex::brakeType::brake);
+  BackLeft.stop(vex::brakeType::brake);
+  MiddleLeft.stop(vex::brakeType::brake);
+  FrontRight.stop(vex::brakeType::brake);
+  BackRight.stop(vex::brakeType::brake);
+  MiddleRight.stop(vex::brakeType::brake);
+}
+//////////////////////////////////////////////////////////////////////////////////////////////
+void FarRush1(){
+  expand.open();
+  wait(50, msec);
+ Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+ move(610, 100);
+ expand.close();
+ slantLeft(270, 30);
+  MoveForward(400, 50);
+ moveBack(300, 10);
+ turn(115, 100);
+ expand.open();
+ Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+ MoveForward(500, 100);
+ Intake.stop(vex::brakeType::coast);
+ moveBack(100, 100);
+ expand.close();
+ turn(-90, 100);
+  Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+  move(490, 100);
+  move(-300, 100);
+   turn(115, 100);
+   expand.open();
+ Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+ MoveForward(700, 100);
+ Intake.stop(vex::brakeType::coast);
+ move(-300, 100);
+ expand.close();
+ turn(180, 100);
+ move(800, 100);
+ turn(90, 100);
+ expand.open();
+ slantLeft(550, 28);
+  MoveForward(200, 100);
+ expand.close();
+ Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+  MoveForward(600, 100);
+ moveBack(300, 100);
+turn(-110, 100);
+    moveBack(600, 100);
+  move(200, 100);
+
+}
+
+void FarSafe2(){
+ Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+MoveForward(1000, 7);
+ wait(700, msec);
+ move(-500, 100);
+ turn(170, 100);
+ expand.open();
+ slantLeft(550, 28);
+ MoveForward(200, 100);
+ expand.close();
+ 
 
 
-}
-void slantLeft(int time1, int time2) {
-LF.spin(vex::directionType::rev, 20, vex::velocityUnits::pct);
-LM.spin(vex::directionType::rev, 20, vex::velocityUnits::pct);
-LB.spin(vex::directionType::rev, 20, vex::velocityUnits::pct);
-RF.spin(vex::directionType::fwd, 88, vex::velocityUnits::pct);
-RM.spin(vex::directionType::fwd, 88, vex::velocityUnits::pct);
-RB.spin(vex::directionType::fwd, 88, vex::velocityUnits::pct);
-
-wait (time1, msec);
-WingL.open();
-wait (time2, msec);
-
-LF.stop(vex::brakeType::brake);
-LM.stop(vex::brakeType::brake);
-LB.stop(vex::brakeType::brake);
-RF.stop(vex::brakeType::brake);
-RM.stop(vex::brakeType::brake);
-RB.stop(vex::brakeType::brake);
-
-
-}
-void armDown(double time) {
-Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
-waitUntil(Intake.position(vex::rotationUnits::deg) >= time); {
-Intake.stop(vex::brakeType::brake);
-}
-}
-void armUp(double time) {
+  Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+  MoveForward(600, 100);
+  moveBack(300, 100);
+turn(-70, 100);
+    moveBack(600, 100);
+  move(200, 100);
+  turn(14, 100);
+   Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+move(770, 100);
+wait(150, msec);
+moveBack(200, 100);
+turn(150, 100);
 Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
-waitUntil(Intake.position(vex::rotationUnits::deg) >= time); {
-Intake.stop(vex::brakeType::brake);
-}
-}
-void moveNoPid(int time, int speed) {
-LF.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-LM.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-LB.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-RF.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-RM.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-RB.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-wait(time, msec);
-LB.stop(vex::brakeType::brake);
-RF.stop(vex::brakeType::brake);
-RM.stop(vex::brakeType::brake);
-RB.stop(vex::brakeType::brake);
-LF.stop(vex::brakeType::brake);
-LM.stop(vex::brakeType::brake);
-}
-void moveRevNoPid(int time, int speed) {
-LF.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-LM.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-LB.spin(vex::directionType::fwd, speed, vex::velocityUnits::pct);
-RF.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-RM.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-RB.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-wait(time, msec);
-LB.stop(vex::brakeType::brake);
-RF.stop(vex::brakeType::brake);
-RM.stop(vex::brakeType::brake);
-RB.stop(vex::brakeType::brake);
-LF.stop(vex::brakeType::brake);
-LM.stop(vex::brakeType::brake);
-}
-
-void turnNoPid(int time, int speed) {
-LF.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-LM.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-LB.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-RF.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-RM.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-RB.spin(vex::directionType::rev, speed, vex::velocityUnits::pct);
-wait(time, msec);
-LB.stop(vex::brakeType::brake);
-RF.stop(vex::brakeType::brake);
-RM.stop(vex::brakeType::brake);
-RB.stop(vex::brakeType::brake);
-LF.stop(vex::brakeType::brake);
-LM.stop(vex::brakeType::brake);
-}
-//Cata task for driver
-int Cata() {
-if (Controller1.ButtonR1.pressing()) {
-double rotationPosition = 0;
-CataLeft.spin(vex::directionType::fwd, 50, vex::velocityUnits::pct);
-CataRight.spin(vex::directionType::rev, 50, vex::velocityUnits::pct);
-wait(500, msec);
+MoveForward(350, 100);
+turn(40, 100);
+ Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+move(420, 100);
+moveBack(20, 100);
+turn(177, 100);
+expand.open();
+Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+MoveForward(800, 100);
+wait(50, msec);
+expand.close();
+slantRevRight(575, 30);
 
 
-while (true) {
-rotationPosition = Rotation.position(vex::rotationUnits::deg);
-if (rotationPosition <= 220) {
-CataLeft.stop(vex::brakeType::coast);
-CataRight.stop(vex::brakeType::coast);
-break;
-}
-vex::task::sleep(20); // Sleep to avoid excessive CPU usage
-}
-}
-return 1;
+
+
+
+ 
 }
 
 
+void FarBar3(){
+  expand.open();
+  wait(100,msec);
+  MoveForward(200,100);
+  wait(100,msec);
+  expand.close();
+  Intake.spin(vex::directionType::rev);
+  slantLeft(400,20);
+  MoveForward (300,100);
+  Intake.stop();
+  MoveForward(400,100);
+  move(-215,100);
+  expand.close();
+  turn(-117, 100);
+  Intake.spin(vex::directionType::fwd);
+  move(760,100);
+  move(50,80);
+  Intake.stop();
+
+  turn(-30,100);
+  expand.open();
+  slantRight(500,20);
+  expell(300,100);
+  MoveForward(700,100); 
+  expand.close();
+
+  turn(-120,100);
+  Intake.spin(vex::directionType::fwd);
+  move(460,100);
+  move(-145,100);
+
+  turn(35,100);
+  expand.open();
+  expell(300,100);
+  MoveForward(600,100);
+  wait(25,msec);
+  expand.close();
+  moveBack(300,100);
+}
+void CloseAWP4(){
+  move(780,90);
+  turn(-90,100);
+  expell(500,100);
+  wait(100,msec);
+  MoveForward(300,100);
+  move(-200,100);
+  expand.open();
+  turn(150,100);
+  expand.close();
+  turn(200,100);
+  move(715,100);
+  expand.open();
+
+  turn(120,100);
+  expand.close();
+  wait(35, msec);
+  move(200,100);
+  turn(90,100);
+  Intake.spin(vex::directionType::fwd,100,vex::velocityUnits::pct);
+  move(440,100);
+  move(-10,100);
+}
+
+void CloseRush5(){
+ Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+move(740, 100);
+turn(0, 100);
+ moveBack(300, 30);
+turn(80, 100);
+ Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); //ball across bar
+ move(300, 100);
+ moveBack(200, 30);
+ expand.open();
+ turn(-145, 100);
+ expand.close();
+   Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+ move(720, 100);
+  turn(-35, 100);
+   Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
+   MoveForward(350, 100);
+   turn(128, 100);
+   moveBack(400, 100);
+   MoveForward(250, 100);
+   turn(165, 100);
+    expand.open();
+    MoveForward(200, 100);
+   slantLeft(800, 33);
+   expand.close();
+   MoveForward(200, 100);
+   turn(-100, 100);
+   move(-175, 100);
+   move(350, 100);
+ wait(15, sec);
+}
 
 
+void Skills6(){
+  flywheel.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+  expand.open();
+  turn(155,100);
+  MoveForward(395,8);
 
+  wait(27, sec);
+  flywheel.stop();
+    expand.close();
+  turn(55,100);
+  move(-200,100);
+  turn(69,100);///???
+  moveBack(500,100);
+  move(200,100);
+  turn(-135,100);
+  move(-400,100);
+  turn(-160,100);
 
+  move(-1100,100);
+  turn(0,100);
+  expand.open();
+  move(50,100);
+  slantLeft(720,35);
+  expand.close();
+  Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+  turn(-60,100);
+  MoveForward(300,100);
+  move(-100,100);
+  MoveForward(100,20);
+  MoveForward(700,100);
+  move(-200,100);
+  turn(-65,100);
+  MoveForward(700,100);
+  move(-100,100);
+  turn(180,100);
+    Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+  move(725,100);
+  turn(-90,100);
+  move(100,100);
+  expand.open();
+  slantRight(600,35); // first slanting right middle goal score
+    Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+  MoveForward(800,100);
+  expand.close();
+  move(-400,100);
+  turn(80,100);
+    Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+  move(460, 100);
+  turn(-35, 100);// turn to second push
+  expand.open();
+  Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+  MoveForward(800,100);
+  moveBack(500,100);
+  expand.close();
+  turn(58, 100);
+  move(-450,100);
+  turn(-48,100); 
+    expand.open();
+    MoveForward(400,100);
+    slantRightLess(500,25);
+    turn(82,100);  
+    expand.close();
+    move(-200,100);
+    turn(10, 100);
+    expand.open();
+      slantRight(720,35);
+    MoveForward(1000,100);
+    expand.close();
+    moveBack(100, 100);
+     
+     
+    MoveForward(800, 100);
+    
 
+    // potentially change all code below this this to just slantRevRight(400, 20); if it runs out of time
 
-//auton selector
-int  autonSwitchVar = 0;
+   slantRevRight(400, 20);
+    wait(10, sec);
+  
+    
+    
 
-bool autonSwitch = true;
+    
+ 
+  //////
 
+  /*
+  expand.close();
+  Intake.stop();
+  turn(60,100);
+  move(950,100);
+  turn(110,100);
+  moveBack(800,100);
+  MoveForward(800, 50);
+  */
 
-int autonSelector() {
-
-
-Brain.Screen.clearScreen();
-
-Brain.Screen.setFont(vex::fontType::mono20);
-Brain.Screen.clearScreen();
-Brain.Screen.setFillColor(vex::color::blue);
-Brain.Screen.setPenColor(vex::color::white);
-Brain.Screen.drawRectangle(10, 10, 440, 260);
-Brain.Screen.setCursor(2, 4);
-Brain.Screen.print("Autonomous Selector");
-Brain.Screen.setCursor(3, 4);
-Brain.Screen.print("0: Close");
-Brain.Screen.setCursor(4, 4);
-Brain.Screen.print("1: Far");
-Brain.Screen.setCursor(5, 4);
-Brain.Screen.print("2: Close No Bar");
-Brain.Screen.setCursor(6, 4);
-Brain.Screen.print("3: Far No Bar");
-Brain.Screen.setCursor(7, 4);
-Brain.Screen.print("4: Skills");
-Brain.Screen.setCursor(8, 4);
-Brain.Screen.setFont(vex::fontType::mono20);
-Brain.Screen.print("Current selected auton is %d", autonSwitchVar);
-Brain.Screen.setFont(vex::fontType::mono60);
-Brain.Screen.setCursor(4, 1);
-Brain.Screen.print("1028R You Ready?");
-
-   while (true) {
   
 
-        if (Brain.Screen.pressing()) {
-   autonSwitchVar += 1;
-Brain.Screen.setFont(vex::fontType::mono20);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//auton switch code
+int autonVar = 1;
+
+void autonSelector(){
+    Brain.Screen.setFont(vex::fontType::mono20);
 Brain.Screen.clearScreen();
 Brain.Screen.setFillColor(vex::color::blue);
 Brain.Screen.setPenColor(vex::color::white);
@@ -412,323 +707,212 @@ Brain.Screen.drawRectangle(10, 10, 440, 260);
 Brain.Screen.setCursor(2, 4);
 Brain.Screen.print("Autonomous Selector");
 Brain.Screen.setCursor(3, 4);
-Brain.Screen.print("0: Close");
+Brain.Screen.print("1: FarRush");
 Brain.Screen.setCursor(4, 4);
-Brain.Screen.print("1: Far");
+Brain.Screen.print("2: FarSafe");
 Brain.Screen.setCursor(5, 4);
-Brain.Screen.print("2: Close No Bar");
+Brain.Screen.print("3: FarBar");
 Brain.Screen.setCursor(6, 4);
-Brain.Screen.print("3: Far No Bar");
+Brain.Screen.print("4: CloseAWP");
 Brain.Screen.setCursor(7, 4);
-Brain.Screen.print("4: Skills");
+Brain.Screen.print("5: CloseRush");
 Brain.Screen.setCursor(8, 4);
+Brain.Screen.print("6: Skills");
+Brain.Screen.setCursor(9, 4);
 Brain.Screen.setFont(vex::fontType::mono20);
-Brain.Screen.print("Current selected auton is %d", autonSwitchVar);
-Brain.Screen.setFont(vex::fontType::mono60);
-Brain.Screen.setCursor(4, 1);
-Brain.Screen.print("1028R You Ready?");
+Brain.Screen.print("Current selected auton is %d", autonVar);
 
-            if (autonSwitchVar > 4) {
-                autonSwitchVar = 0;
-            }
-            wait(800, msec);
-            
+while(true){
 
-   
-        }
+if (Controller1.ButtonB.pressing()){
+  switch (autonVar){
+  
+  case 1:
+  Controller1.Screen.print("1: FarRush WILL BE RUN");
+  case 2:
+  Controller1.Screen.print("2: FarSafe WILL BE RUN");
+  case 3:
+  Controller1.Screen.print("3: FarBar WILL BE RUN");
+  case 4:
+  Controller1.Screen.print("4: CloseAWP WILL BE RUN");
+  case 5:
+  Controller1.Screen.print("5: CloseRush WILL BE RUN");
+  case 6:
+  Controller1.Screen.print("6: Skills WILL BE RUN");
+  default:
+  Controller1.Screen.print("Code Bug all Wesley's Fault");
+  }
 
-        return 1;
-   
+
+
+  break;
 }
+
+ if ((Brain.Screen.pressing()) or (Controller1.ButtonA.pressing())) {
+autonVar +=1;
+if(autonVar > 6){
+  autonVar = 1;
 }
-
-
-
-//autons
-void close() {
-
-}
-void far() {
-    Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
-move(75,100);
-wait(400, msec);
-move(-400, 40);
-slantLeft(350, 375);
-
-moveNoPid(500, 100);
-
-move(150, 100);
-
-Intake.stop(vex::brakeType::brake);
-WingL.close();
-
-turn( 270, 100);
-moveNoPid(600, 100);
-
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);// first intaked triball
-move(625, 100);
-turn(90, 100);
-move(-300, 100);
-WingL.open();
-turn(85, 100);
-
-
-}
-void closeNoBar() {
-}
-void farNoBar() {
-
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
-move(75,100);
-wait(400, msec);
-move(-400, 40);
-slantLeft(350, 375);
-
-moveNoPid(500, 100);
-
-move(150, 100);
-Intake.stop(vex::brakeType::brake);
-WingL.close();
-turn(18, 100);
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);// first intaked triball
-move(600, 100);
-turn(155, 100);
-Intake.spin(vex::directionType::fwd, 100,vex::velocityUnits::pct);//scoring first intaked triball
-moveRevNoPid(1000, 100);
-wait(200,msec);
-moveNoPid(200, 100);
-turn(175, 100);
-move(-375, 100);
-turn(25, 100);
-move(75, 100);
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
-wait(300, msec);
-turn(170, 100);
-WingL.open();
-Intake.spin(vex::directionType::fwd, 100,vex::velocityUnits::pct);
-moveRevNoPid(1000, 100);
+Brain.Screen.setCursor(9, 4);
+Brain.Screen.clearLine();
+Brain.Screen.print("Current selected auton is %d", autonVar);
+Controller1.Screen.clearLine();
+switch (autonVar){
+  
+  case 1:
+  Controller1.Screen.print("1: FarRush");
+  case 2:
+  Controller1.Screen.print("2: FarSafe");
+  case 3:
+  Controller1.Screen.print("3: FarBar");
+  case 4:
+  Controller1.Screen.print("4: CloseAWP");
+  case 5:
+  Controller1.Screen.print("5: CloseRush");
+  case 6:
+  Controller1.Screen.print("6: Skills");
+  default:
+  Controller1.Screen.print("Code Bug");
+  }
+wait(700, msec);
 }
 
 
 
 
-/*---------------------------------------------------------------------------*/
-/* Pre-Autonomous Functions */
-/* */
-/* You may want to perform some actions before the competition starts. */
-/* Do them in the following function. You must return from this function */
-/* or the autonomous and usercontrol tasks will not be started. This */
-/* function is only called once after the V5 has been powered on and */
-/* not every time that the robot is disabled. */
-/*---------------------------------------------------------------------------*/
-
-
+}
+}
 void pre_auton(void) {
-autonSelector();
+ autonSelector();
 }
 /*---------------------------------------------------------------------------*/
-/* */
-/* Autonomous Task */
-/* */
-/* This task is used to control your robot during the autonomous phase of */
-/* a VEX Competition. */
-/* */
-/* You must modify the code to add your own robot specific commands here. */
+/*                                                                           */
+/*                              Autonomous Task                              */
+/*                                                                           */
+/*  This task is used to control your robot during the autonomous phase of   */
+/*  a VEX Competition.                                                       */
+/*                                                                           */
+/*  You must modify the code to add your own robot specific commands here.   */
 /*---------------------------------------------------------------------------*/
-
 
 void autonomous(void) {
-vex::task::stop(autonSelector);
-autonSwitch = false;
+  autonVar = 6;
+ switch (autonVar){
+  //uncomment and change next line while testing autons to not have to use comp switch
+  
+  //remember to reccoment it once autons are done testing.
 
 
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
-move(75,100);
-wait(400, msec);
-move(-420, 40);
-slantLeft(350, 375);
+  case 1:
+  FarRush1();
+  break;
+  case 2:
+  FarSafe2();
+  break;
+  case 3:
+  FarBar3();
+  break;
+  case 4:
+  CloseAWP4();
+  break;
+  case 5:
+  CloseRush5();
+  break;
+  case 6:
+  Skills6();
+  break;
+  default:
+  break;
 
-moveNoPid(500, 100);
+  }
 
-move(150, 100);
-Intake.spin(vex::directionType::fwd, 100,vex::velocityUnits::pct);
-WingL.close();
-wait(500,msec);
-turn(270, 100);
-WingL.open();
-Intake.stop(vex::brakeType::brake);
-moveNoPid(300, 100);
-
-/*
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);// first intaked triball
-move(600, 100);
-turn(155, 100);
-Intake.spin(vex::directionType::fwd, 100,vex::velocityUnits::pct);//scoring first intaked triball
-moveRevNoPid(1000, 100);
-wait(200,msec);
-moveNoPid(200, 100);
-turn(175, 100);
-move(-375, 100);
-turn(25, 100);
-move(75, 100);
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
-wait(300, msec);
-turn(170, 100);
-WingL.open();
-Intake.spin(vex::directionType::fwd, 100,vex::velocityUnits::pct);
-moveRevNoPid(1000, 100);*/
-
-/**]
-switch(autonSwitchVar) {
-case 1:
-close();
-break;
-case 2:
-far();
-break;
-case 3:
-closeNoBar();
-break;
-case 4:
-farNoBar();
-break;
-
-}*/
 }
-/*---------------------------------------------------------------------------*/
-/* */
-/* User Control Task */
-/* */
-/* This task is used to control your robot during the user control phase of */
-/* a VEX Competition. */
-/* */
-/* You must modify the code to add your own robot specific commands here. */
-/*---------------------------------------------------------------------------*/
+  
 
+
+
+
+//AutonRightWCOLOR
+/*---------------------------------------------------------------------------*/
+/*                                                                           */
+/*                              User Control Task                            */
+/*                                                                           */
+/*  This task is used to control your robot during the user control phase of */
+/*  a VEX Competition.                                                       */
+/*                                                                           */
+/*  You must modify the code to add your own robot specific commands here.   */
+/*---------------------------------------------------------------------------*/
 
 void usercontrol(void) {
-// User control code here, inside the loop
-autonSwitch = false;
-vex::task::stop(autonSelector);
+  // User control code here, inside the loop
+  while (1) {
+    BackLeft.spin(vex::directionType::rev, ((-0.7 * Controller1.Axis1.value()) - (0.5 * Controller1.Axis3.value())), vex::velocityUnits::pct);
+    BackRight.spin(vex::directionType::fwd, ((-0.7 * Controller1.Axis1.value()) + (0.5 * Controller1.Axis3.value())), vex::velocityUnits::pct);
+    FrontLeft.spin(vex::directionType::rev, ((-0.7 * Controller1.Axis1.value()) - (0.5 * Controller1.Axis3.value())), vex::velocityUnits::pct);
+    FrontRight.spin(vex::directionType::fwd, ((-0.7 * Controller1.Axis1.value()) + (0.5 * Controller1.Axis3.value())), vex::velocityUnits::pct);
+    MiddleLeft.spin(vex::directionType::rev, ((-0.7 * Controller1.Axis1.value()) - (0.5 * Controller1.Axis3.value())), vex::velocityUnits::pct);
+    MiddleRight.spin(vex::directionType::fwd, ((-0.7 * Controller1.Axis1.value()) + (0.5 * Controller1.Axis3.value())), vex::velocityUnits::pct);
 
+    if(Controller1.ButtonL2.pressing()){
+      Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
+    }else{ if(Controller1.ButtonL1.pressing()){
+      Intake.spin(vex::directionType::fwd,100,vex::velocityUnits::pct);
+    }else{
+      Intake.stop(vex::brakeType::brake);
+    }
+    }
+    if(Controller1.ButtonR1.pressing()){
+       flywheel.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+    }else if(Controller1.ButtonR2.pressing()){
+       flywheel.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+    }else if (Controller1.ButtonX.pressing()){
+        flywheel.stop(vex::brakeType::brake);
+    }
 
-Brain.Screen.setFont(vex::fontType::mono20);
-Brain.Screen.clearScreen();
-Brain.Screen.setFillColor(vex::color::blue);
-Brain.Screen.setPenColor(vex::color::white);
-Brain.Screen.drawRectangle(10, 10, 440, 260);
-Brain.Screen.setCursor(2, 4);
-Brain.Screen.print("Autonomous Selector");
-Brain.Screen.setCursor(3, 4);
-Brain.Screen.print("0: Close");
-Brain.Screen.setCursor(4, 4);
-Brain.Screen.print("1: Far");
-Brain.Screen.setCursor(5, 4);
-Brain.Screen.print("2: Close No Bar");
-Brain.Screen.setCursor(6, 4);
-Brain.Screen.print("3: Far No Bar");
-Brain.Screen.setCursor(7, 4);
-Brain.Screen.print("4: Skills");
-Brain.Screen.setCursor(8, 4);
-Brain.Screen.setFont(vex::fontType::mono20);
-Brain.Screen.print("Current selected auton is %d", autonSwitchVar);
-Brain.Screen.setFont(vex::fontType::mono60);
-Brain.Screen.setCursor(4, 1);
-Brain.Screen.print("1028R You Ready?");
-while (1) {
+    if (Controller1.ButtonY.pressing()){
+      expand.open();
+    }else if(Controller1.ButtonB.pressing()){
+      expand.close();
+    }
+     if (Controller1.ButtonUp.pressing()){
+      expand.open();
+      wait(50, msec);
+      hang.open();
+      expand.close();
+    }
+    if (Controller1.ButtonDown.pressing()){
+        flywheel.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+        expand.open();
+        turn(161,100);
+        MoveForward(140,50);
+        expand.close();
+        wait(32, sec);
+        flywheel.stop();
+        turn(55,100);
+        move(-200,100);
+        turn(75,100);///???
+        moveBack(500,100);
+    }
 
-
-// arcade chassis code takes the value of the left joystick and adds / subtracts it to the value of the right joystick
-//Cata();
-
-
-LF.spin(vex::directionType::fwd, (Controller1.Axis3.value() - Controller1.Axis1.value()), vex::velocityUnits::pct);
-LM.spin(vex::directionType::fwd, (Controller1.Axis3.value() - Controller1.Axis1.value()), vex::velocityUnits::pct);
-LB.spin(vex::directionType::fwd, (Controller1.Axis3.value() - Controller1.Axis1.value()), vex::velocityUnits::pct);
-RF.spin(vex::directionType::rev, (Controller1.Axis3.value() + Controller1.Axis1.value()), vex::velocityUnits::pct);
-RM.spin(vex::directionType::rev, (Controller1.Axis3.value() + Controller1.Axis1.value()), vex::velocityUnits::pct);
-RB.spin(vex::directionType::rev, (Controller1.Axis3.value() + Controller1.Axis1.value()), vex::velocityUnits::pct);
-
-
-if (Controller1.ButtonB.pressing()) {
-CataLeft.spin(vex::directionType::fwd, 30,vex::velocityUnits::pct);
-CataRight.spin(vex::directionType::rev, 30, vex::velocityUnits::pct);
-
-}
-if (Controller1.ButtonA.pressing()) {
-HangL.open();
-HangR.open();
-
-}
-if (Controller1.ButtonX.pressing()) {
-HangL.close();
-HangR.close();
-
+    wait(10, msec); // Sleep the task for a short amount of time to
+                    // prevent wasted resources.
+  }
 }
 
-if (Controller1.ButtonR2.pressing()) {
-CataLeft.spin(vex::directionType::fwd, 50,vex::velocityUnits::pct);
-CataRight.spin(vex::directionType::rev, 50, vex::velocityUnits::pct);
-}else {
-CataLeft.stop(vex::brakeType::brake);
-CataRight.stop(vex::brakeType::brake);
-}
-
-if (Controller1.ButtonB.pressing()) {
-    WingL.open();
-    WingR.open();
-}
-if (Controller1.ButtonY.pressing()) {
-    WingL.close();
-    WingR.close();
-}
-
-
-if (Controller1.ButtonL1.pressing()) {
-Intake.spin(vex::directionType::fwd, 100,vex::velocityUnits::pct);
-} else {
-
-
-if (Controller1.ButtonL2.pressing()) {
-Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
-}else {
-Intake.stop(vex::brakeType::brake);
-}
-// This is the main execution loop for the user control program.
-// Each time through the loop your program should update motor + servo
-// values based on feedback from the joysticks.
-
-
-// ........................................................................
-// Insert user code here. This is where you use the joystick values to
-// update your motors, etc.
-// ........................................................................
-
-
-wait(20, msec); // Sleep the task for a short amount of time to
-// prevent wasted resources.
-}
-}
-}
-
-
-
-//
-// Main will set up the competition functions and callbacks.
-//
 int main() {
-// Set up callbacks for autonomous and driver control periods.
-Competition.autonomous(autonomous);
-Competition.drivercontrol(usercontrol);
+  // Set up caBackLeftackLeftacks for autonomous and driver control periods.
+  Competition.autonomous(autonomous);
+  Competition.drivercontrol(usercontrol);
 
+  // Run the pre-autonomous function.
+  pre_auton();
 
-// Run the pre-autonomous function.
-pre_auton();
-
-
-// Prevent main from exiting with an infinite loop.
-while (true) {
-wait(100, msec);
+  // Prevent main from exiting with an infinite loop.
+  while (true) {
+    wait(100, msec);
+  }
 }
-return 1;
-}
+
+
+
+

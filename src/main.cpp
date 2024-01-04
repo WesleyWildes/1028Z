@@ -796,7 +796,7 @@ void pre_auton(void) {
 /*---------------------------------------------------------------------------*/
 
 void autonomous(void) {
-  autonVar = 6;
+// autonVar = 6;
  switch (autonVar){
   //uncomment and change next line while testing autons to not have to use comp switch
   

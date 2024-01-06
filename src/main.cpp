@@ -4,7 +4,7 @@
 using namespace vex;
 competition Competition;
 vex::brain Brain = vex::brain(); 
-vex::inertial Inertial = vex::inertial(vex::PORT16);
+vex::inertial Inertial = vex::inertial(vex::PORT18);
 vex::motor FrontLeft (vex::PORT1, vex::gearSetting::ratio18_1, true);
 vex::motor FrontRight (vex::PORT2, vex::gearSetting::ratio18_1, false);
 vex::motor BackLeft (vex::PORT3, vex::gearSetting::ratio18_1, true);
@@ -542,13 +542,13 @@ void CloseAWP4(){
   turn(-90,100);
   expell(500,100);
   wait(100,msec);
-  MoveForward(300,100);
+  MoveForward(270,100);
   move(-200,100);
   expand.open();
   turn(150,100);
   expand.close();
-  turn(200,100);
-  move(715,100);
+  turn(205,100);
+  move(725,100);
   expand.open();
 
   turn(120,100);
@@ -557,7 +557,7 @@ void CloseAWP4(){
   move(200,100);
   turn(90,100);
   Intake.spin(vex::directionType::fwd,100,vex::velocityUnits::pct);
-  move(390,100);
+  move(400,100);
   move(-5,100);
 }
 

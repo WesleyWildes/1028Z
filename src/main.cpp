@@ -4,7 +4,7 @@
 using namespace vex;
 competition Competition;
 vex::brain Brain = vex::brain(); 
-vex::inertial Inertial = vex::inertial(vex::PORT11);
+vex::inertial Inertial = vex::inertial(vex::PORT16);
 vex::motor FrontLeft (vex::PORT1, vex::gearSetting::ratio18_1, true);
 vex::motor FrontRight (vex::PORT2, vex::gearSetting::ratio18_1, false);
 vex::motor BackLeft (vex::PORT3, vex::gearSetting::ratio18_1, true);
@@ -436,7 +436,7 @@ void FarRush1(){
  move(-300, 100);
  expand.close();
  turn(180, 100);
- move(800, 100);
+ move(750, 100);
  turn(90, 100);
  expand.open();
  slantLeft(550, 28);
@@ -504,7 +504,7 @@ void FarBar3(){
   MoveForward(200,100);
   wait(100,msec);
   expand.close();
-  Intake.spin(vex::directionType::rev);
+  Intake.spin(vex::directionType::fwd);
   slantLeft(400,20);
   MoveForward (300,100);
   Intake.stop();
@@ -512,7 +512,7 @@ void FarBar3(){
   move(-215,100);
   expand.close();
   turn(-117, 100);
-  Intake.spin(vex::directionType::fwd);
+  Intake.spin(vex::directionType::rev);
   move(760,100);
   move(50,80);
   Intake.stop();
@@ -525,7 +525,7 @@ void FarBar3(){
   expand.close();
 
   turn(-120,100);
-  Intake.spin(vex::directionType::fwd);
+  Intake.spin(vex::directionType::rev);
   move(460,100);
   move(-145,100);
 
@@ -557,8 +557,8 @@ void CloseAWP4(){
   move(200,100);
   turn(90,100);
   Intake.spin(vex::directionType::fwd,100,vex::velocityUnits::pct);
-  move(440,100);
-  move(-10,100);
+  move(390,100);
+  move(-5,100);
 }
 
 void CloseRush5(){
@@ -579,8 +579,8 @@ turn(80, 100);
    Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); 
    MoveForward(350, 100);
    turn(128, 100);
-   moveBack(400, 100);
-   MoveForward(250, 100);
+   moveBack(200, 100);
+   MoveForward(150, 100);
    turn(165, 100);
     expand.open();
     MoveForward(200, 100);
@@ -588,7 +588,7 @@ turn(80, 100);
    expand.close();
    MoveForward(200, 100);
    turn(-100, 100);
-   move(-175, 100);
+   move(-210, 100);
    move(350, 100);
  wait(15, sec);
 }
@@ -796,7 +796,7 @@ void pre_auton(void) {
 /*---------------------------------------------------------------------------*/
 
 void autonomous(void) {
-// autonVar = 6;
+  //autonVar = 5;
  switch (autonVar){
   //uncomment and change next line while testing autons to not have to use comp switch
   

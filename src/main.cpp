@@ -47,6 +47,7 @@ void turn(int degrees, int Speed) {
 
   while (true) {
     measuredValue = Inertial.rotation(vex::rotationUnits::deg);
+
     double turnSpeed = (error * P) + (integral * I) + (derivative * D);
      
     FrontLeft.spin(vex::directionType::rev, turnSpeed, vex::velocityUnits::pct);
@@ -59,7 +60,7 @@ void turn(int degrees, int Speed) {
     error = -1*(degrees - measuredValue);
 
    
-    // Limit the integral term to prevent wind-up
+   
     if (abs(error) < 5) {
       integral += error;
     } else {
@@ -70,10 +71,8 @@ void turn(int degrees, int Speed) {
     prevError = error;
 
     if (abs(error) < 1.5) {
-      reachedTarget = true; // Mark that we've reached the target
+      reachedTarget = true; 
     }
-
-    // If the error changes sign after reaching the target, break the loop
     if (reachedTarget) {
       FrontLeft.stop();
       MiddleLeft.stop();
@@ -264,22 +263,18 @@ wait(200, msec);
 int KickerAuto () {
 
   double distancePos = 0.0;
-  double distanceThresh = 15;
+  double distanceThresh = 38;
   double rotationThresh = 320;
  int count = 0;
 while(true){
 
-if(Controller1.ButtonL2.pressing()){
-      kicker.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
-      wait(75, msec);
-      kicker.stop();
-    }
+
  
-if(KickerDistance.objectDistance(vex::distanceUnits::cm) < distanceThresh){
+if(KickerDistance.objectDistance(vex::distanceUnits::mm) < distanceThresh){
   wait(50,msec);
 kicker.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
 }
-if(!(KickerDistance.objectDistance(vex::distanceUnits::cm) < distanceThresh)){
+if(!(KickerDistance.objectDistance(vex::distanceUnits::mm) < distanceThresh)){
   wait(125, msec);
   kicker.stop();
 }
@@ -496,7 +491,7 @@ void FarRush1(){
   
  turn(-90, 100);
   Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
-  move(490, 100);
+  move(450, 100);
   move(-300, 100);
    turn(115, 100);
     wingsLeft.open();
@@ -892,17 +887,22 @@ void autonomous(void) {
 
 int usercontrol(void) {
   // User control code here, inside the loop
+  BackLeft.setBrake(vex::brakeType::brake);
+  BackRight.setBrake(vex::brakeType::brake);
+  FrontLeft.setBrake(vex::brakeType::brake);
+  FrontRight.setBrake(vex::brakeType::brake);
+  MiddleLeft.setBrake(vex::brakeType::brake);
+  MiddleRight.setBrake(vex::brakeType::brake);
   while (1) {
-   
  
 
 
-    BackLeft.spin(vex::directionType::fwd, ((Controller1.Axis1.value()) + (0.65 * Controller1.Axis3.value())), vex::velocityUnits::pct);
-    BackRight.spin(vex::directionType::rev, (( Controller1.Axis1.value()) - (0.65*Controller1.Axis3.value())), vex::velocityUnits::pct);
-    FrontLeft.spin(vex::directionType::fwd, ((Controller1.Axis1.value()) + (0.65*Controller1.Axis3.value())), vex::velocityUnits::pct);
-    FrontRight.spin(vex::directionType::rev, ((Controller1.Axis1.value()) - (0.65*Controller1.Axis3.value())), vex::velocityUnits::pct);
-    MiddleLeft.spin(vex::directionType::fwd, ((Controller1.Axis1.value()) + (0.65*Controller1.Axis3.value())), vex::velocityUnits::pct);
-    MiddleRight.spin(vex::directionType::rev, ((Controller1.Axis1.value()) - (0.65*Controller1.Axis3.value())), vex::velocityUnits::pct);
+    BackLeft.spin(vex::directionType::fwd, ((Controller1.Axis1.value()) + (Controller1.Axis3.value())), vex::velocityUnits::pct);
+    BackRight.spin(vex::directionType::rev, (( Controller1.Axis1.value()) - (Controller1.Axis3.value())), vex::velocityUnits::pct);
+    FrontLeft.spin(vex::directionType::fwd, ((Controller1.Axis1.value()) + (Controller1.Axis3.value())), vex::velocityUnits::pct);
+    FrontRight.spin(vex::directionType::rev, ((Controller1.Axis1.value()) - (Controller1.Axis3.value())), vex::velocityUnits::pct);
+    MiddleLeft.spin(vex::directionType::fwd, ((Controller1.Axis1.value()) + (Controller1.Axis3.value())), vex::velocityUnits::pct);
+    MiddleRight.spin(vex::directionType::rev, ((Controller1.Axis1.value()) - (Controller1.Axis3.value())), vex::velocityUnits::pct);
     
     if(Controller1.ButtonL2.pressing()){
       Intake.spin(vex::directionType::rev, 100,vex::velocityUnits::pct);
@@ -941,7 +941,7 @@ int usercontrol(void) {
 
 
 
-    wait(10, msec); // Sleep the task for a short amount of time to
+    wait(5, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
   }
   return 1;
